@@ -1,4 +1,4 @@
-class Queue(){
+class Queue{
     constructor(){
         this.storage = [];
         this.currentIndex = 0;
@@ -21,4 +21,12 @@ class Queue(){
         return this.size
     }
 
+    clear = () =>{
+        this.storage = [];
+        this.size = 0;
+        this.currentIndex = 0;
+    }
+
 }
+
+module.exports = Queue
