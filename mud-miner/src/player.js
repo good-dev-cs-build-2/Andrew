@@ -10,6 +10,7 @@ class Player{
         this.AUTHTOKEN = "e837e4ce6747d03d96e727128d9cdc44a4c5cab7";
         this.shop_id = null
         this.name_room_id = null
+        this.gold = null
     }
 
     init = () =>{
@@ -91,6 +92,42 @@ class Player{
 
     returnToShop = () =>{
 
+        pathToShop = bfs(self.shop_id)
+        pathBack = [...pathToShop].reverse()
+
+        pathToShop.map(direction =>{
+            self.cooldownDelay()
+            self.move(direction, self.roomGraph[self.room_id][direction])
+        })
+
+        self.sellItems()
+
+        pathBack.map(direction =>{
+            self.cooldownDelay()
+            self.move(direction, self.roomGraph[self.room_id][direction])            
+        })
+
+    }
+
+
+    bfs = (target) =>{
+        visited = []
+        path_object = {}
+        this.queue.enqueue(this.room_id)
+        path_object[this.room_id] = [this.room_id]
+
+        while(this.queue.size() !== 0){
+            currentRoom = this.queue.dequeue()
+            this.roomGraph[currentRoom].keys().map(room =>{
+                if(visited.indexOf(room) === -1){
+                    q.enqueue(room)
+                    path_object[room] = [...path_object[current]].push(room)
+                    if(room === target){
+                        return path_object[room]
+                    }
+                }
+            })
+        }
     }
 
 
