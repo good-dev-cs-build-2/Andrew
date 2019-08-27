@@ -11,6 +11,10 @@ class Player{
         this.shop_id = null
         this.name_room_id = null
         this.gold = null
+        this.strength = 10
+        this.encumbrance = 0
+        this.roomItems = []
+        this.inventory = []
     }
 
     init = () =>{
@@ -27,6 +31,14 @@ class Player{
             this.room_description = res.data.description;
             this.cooldown = res.data.cooldown
             this.exits = res.data.exits
+            console.log(`Messages: ${res.data.messages}`)
+
+            if (res.data.items){
+                this.roomItems = res.data.items
+            }
+            else{
+                this.roomItems = []
+            }
 
             this.roomGraph[this.room_id] = {}
             res.data.exits.map(exit =>{
@@ -57,11 +69,13 @@ class Player{
         })
             .then(res =>{
                 this.resetTimer()
+                console.log(`Moving from room ${this.room_id} to room ${res.data.room_id}`)
                 this.room_id = res.data.room_id;
                 this.room_title = res.data.room_title;
                 this.room_description = res.data.description;
                 this.cooldown = res.data.cooldown
                 this.exits = res.data.exits
+                console.log(`Messages: ${res.data.messages}`)
 
                 if(this.room_title.toLowerCase() === "shop"){
                     this.shop_id = res.data.room_id
@@ -72,6 +86,23 @@ class Player{
                 console.log(err)
             })
 
+    }
+
+    currentStatus = () =>{
+        axios({
+            method: 'post',
+            url: `${this.BASEURL}/api/adv/status/`,
+            headers: {
+                "Content-Type": "Application/json",
+                "Authorization": `Token ${this.AUTHTOKEN}`
+            }
+        })
+            .then(res =>{
+                this.resetTimer()
+                this.cooldown = res.data.cooldown
+                this.encumbrance = res.data.encumbrance
+                this.strength = res.data.strength
+            })
     }
 
     resetTimer = () =>{
@@ -90,6 +121,12 @@ class Player{
         return
     }
 
+    sellItems = () =>{
+        console.log("Selling items not yet implemented")
+    }
+
+    //Take shortest path to shop, sell items
+    //Return so as to not break recursion function
     returnToShop = () =>{
 
         pathToShop = bfs(self.shop_id)
