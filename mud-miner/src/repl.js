@@ -20,25 +20,21 @@ state.returningFromShop = false
 state.readyForNameChange = false
 state.pathToShop = []
 state.pathFromShop = []
+state.pathToPirate = []
+state.roomItems = []
 BASEURL = "https://lambda-treasure-hunt.herokuapp.com";
 AUTHTOKEN = "e837e4ce6747d03d96e727128d9cdc44a4c5cab7";
 
 
 gameManager = () =>{
-    console.log("Inside game manager function")
-
+    
+    console.log("\n\n")
 
     if(state.gold >= 1000){
+        console.log(`Have enough gold: ${state.gold}`)
         //don't want to bother updating status, just need to find pirate
         state.needStatusUpdate = false
         state.readyForNameChange = true
-
-        if(state.pirate_room_id == -1){
-            //we havent' found the pirate yet, we need to keep traversing
-        }
-        else{
-            //build path to pirate, traverse it
-        }
     }
 
     if(state.needStatusUpdate){
@@ -49,7 +45,8 @@ gameManager = () =>{
 
     //pick up items in the room if we want
     // if we're not carrying too much
-    if(state.encumbrance < state.strength){
+    // and we don't have enough gold yet
+    if(state.encumbrance < state.strength && state.gold < 1000){
 
         if(state.roomItems.length != 0){
             //and there are items in the room
@@ -69,8 +66,9 @@ gameManager = () =>{
 
             if(item.includes("treasure")){
                 //pick it up
-
+                console.log(`Attempting to pick up ${item}`)
                 pickUp(item)
+                return
             }
         }
     }
@@ -81,8 +79,10 @@ gameManager = () =>{
 
     if(state.encumbrance >= state.strength){
         if(!state.headingToShop){
+            console.log("Creating path to shop")
             //if we aren't heading to shop, we need to be
             buildPath(state.shop_id)
+            return
         }
 
         //if we are heading to shop, don't need to do anything special
@@ -91,12 +91,13 @@ gameManager = () =>{
     if(state.headingToShop && state.pathToShop.length > 0){
         const next_move = state.pathToShop.shift()
         state.pathFromShop.push(rev_dirs[next_move])
-
+        console.log(`Moving ${next_move} from heading to shop traversal`)
         move(next_move)
         return
     }
 
     if(state.headingToShop && state.pathToShop.length == 0){
+        //we're in the shop
         if(state.inventory.length == 0){
             //return from shop
             state.returningFromShop = true
@@ -111,8 +112,6 @@ gameManager = () =>{
     }
 
 
-
-
     if(state.returningFromShop){
         if(state.pathFromShop.length == 0){
             //we've finished returning from shop
@@ -120,28 +119,104 @@ gameManager = () =>{
         }
         else{
             const next_move = state.pathFromShop.pop()
+            console.log(`Moving ${next_move} from return from shop traversal`)
             move(next_move)
             return
         }
     }
 
 
-    
-    
+    if(state.readyForNameChange && state.pirate_room_id != -1){
+        //We're ready to change name and we know where to go
 
-    
+        if(state.room_id == state.pirate_room_id){
+            //We're here!
 
-    if(state.roomId === state.pirate_room_id && state.gold >= 1000){
-        //change name
+            changeName()
+            return
+        }
+        else{
+            if(state.pathToPirate.length == 0){
+                //we haven't built a path yet
+                buildPath(state.pirate_room_id, false)
+                return
+            }
+            else{
+                //We have a path, just need to follow it
+                const moveToPirate = state.pathToPirate.shift()
+                console.log(`Moving ${moveToPirate} from pirate path traversal`)
+                move(moveToPirate)
+                return
+            }
+        }
     }
+
+
+    //We get here if: Not overencumbered, 
+    //not going to/from shop, 
+    //not ready to change name or just don't know where yet
 
     let graph = state.roomGraph;
     let roomId = state.room_id;
 
-    let exits = Object.values(graph[roomId])
-    console.log(exits)
-    console.log("State:")
-    console.log(state)
+
+    
+    let exits = Object.keys(graph[roomId])
+    console.log(`Checking exits: ${exits}`)
+    if(exits.includes("w")){
+        //West is an exit
+        if(graph[roomId]["w"] == "?"){
+            //West is unexplored
+            console.log("Moving west from normal traversal")
+            move("w")
+            state.returnStack.push("e")
+            return
+        }
+    }
+
+    if(exits.includes("e")){
+        //east is an exit
+        if(graph[roomId]["e"] == "?"){
+            //east is unexplored
+            console.log("Moving east from normal traversal")
+            move("e")
+            state.returnStack.push("w")
+            return
+        }
+    }
+
+    if(exits.includes("s")){
+        //south is an exit
+        if(graph[roomId]["s"] == "?"){
+            //south is unexplored
+            console.log("Moving south from normal traversal")
+            move("s")
+            state.returnStack.push("n")
+            return
+        }
+    }
+
+    if(exits.includes("n")){
+        //north is an exit
+        if(graph[roomId]["n"] == "?"){
+            //north is unexplored
+            console.log("Moving north from normal traversal")
+            move("n")
+            state.returnStack.push("s")
+            return
+        }
+    }
+
+    //If we got here, everywhere was explored, time to turn back
+
+    if(state.returnStack.length > 0){
+        const retrace_move = state.returnStack.pop()
+        console.log(`Moving ${retrace_move} from retrace algo`)
+        move(retrace_move)
+        return
+    }
+
+    
     
 
 }
@@ -158,7 +233,7 @@ init = () =>{
     })
     .then(res =>{
         state.room_id = res.data.room_id;
-        state.room_title = res.data.room_title;
+        state.room_title = res.data.title;
         state.room_description = res.data.description
         state.exits = res.data.exits
         console.log(`Messages: ${res.data.messages}`)
@@ -186,7 +261,7 @@ statusUpdate = () =>{
         method: 'post',
         url: `${BASEURL}/api/adv/status/`,
         headers: {
-            "Content-Type": "Application/json",
+            "Content-Type": "application/json",
             "Authorization": `Token ${AUTHTOKEN}`
         }
     })
@@ -204,6 +279,8 @@ statusUpdate = () =>{
 
 move = (direction) =>{
 
+    console.log(`Going to move: ${direction}`)
+
     const requestObject = {
         "direction": direction
     }
@@ -211,14 +288,15 @@ move = (direction) =>{
     axios({
         method: 'post',
         url: `${BASEURL}/api/adv/move/`,
-        data: requestObject,
         headers: {
-            "Content-Type": "Application/json",
+            "Content-Type": "application/json",
             "Authorization": `Token ${AUTHTOKEN}`
-        }
+        },
+        data: requestObject
+        
     })
         .then(res =>{
-            console.log(`Moving from room ${state.room_id}: ${state.room_title} to room ${res.data.room_id}: ${res.data.room_title}`)
+            console.log(`Moving from room ${state.room_id}: ${state.room_title} to room ${res.data.room_id}: ${res.data.title}`)
 
             //Add room to graph if it isn't there
             if(!(res.data.room_id in state.roomGraph)){
@@ -228,29 +306,31 @@ move = (direction) =>{
                 })
             }
 
-            state.roomGraph[state.roomId][direction] = res.data.room_id
-            state.roomGraph[res.data.room_id][rev_dirs[direction]] = state.roomId
+            state.roomGraph[state.room_id][direction] = res.data.room_id
+            state.roomGraph[res.data.room_id][rev_dirs[direction]] = state.room_id
 
 
 
-            fs.appendFile('roomfile.txt', `${res.data.room_id} ${res.data.room_title}`, ()=> {})
 
-
-            state.roomId = res.data.room_id;
-            state.room_title = res.data.room_title;
+            state.room_id = res.data.room_id;
+            state.room_title = res.data.title;
             state.room_description = res.data.description;
+            state.roomItems = res.data.items
             console.log(`Messages: ${res.data.messages}`)
+            console.log(`Items: ${res.data.items}`)
             console.log(`Cooldown: ${res.data.cooldown}`)
 
-            if(res.data.room_title.toLowerCase() === "shop"){
+            if(res.data.title.toLowerCase() === "shop"){
                 state.shop_id = res.data.room_id
                 console.log("Found the shop")
             }
 
-            if(res.data.room_title.toLowerCase().includes("pirate")){
+            if(res.data.title.toLowerCase().includes("pirate")){
                 state.pirate_room_id = res.data.room_id
                 console.log(`Found the pirate in room ${res.data.room_id}`)
             } 
+
+            setTimeout(gameManager, res.data.cooldown * 1000)
         })
         .catch(err =>{
             console.log(err)
@@ -267,7 +347,7 @@ sell = item =>{
         method: 'post',
         url: `${BASEURL}/api/adv/sell/`,
         headers: {
-            "Content-Type": "Application/json",
+            "Content-Type": "application/json",
             "Authorization": `Token ${AUTHTOKEN}`
         },
         data: firstPostObject
@@ -295,7 +375,7 @@ confirmSale = item =>{
         method: 'post',
         url: `${BASEURL}/api/adv/sell/`,
         headers: {
-            "Content-Type": "Application/json",
+            "Content-Type": "application/json",
             "Authorization": `Token ${AUTHTOKEN}`
         },
         data: postObject
@@ -314,15 +394,15 @@ pickUp = item =>{
 
     axios({
         method: 'post',
-        url: `${BASEURL}/api/adv/sell/`,
+        url: `${BASEURL}/api/adv/take/`,
         headers: {
-            "Content-Type": "Application/json",
+            "Content-Type": "application/json",
             "Authorization": `Token ${AUTHTOKEN}`
         },
         data: postObject
     })
     .then(res =>{
-        console.log(res.data.messages)
+        console.log(res.data)
         state.needStatusUpdate = true
 
         setTimeout(gameManager, res.data.cooldown * 1000)
@@ -332,12 +412,12 @@ pickUp = item =>{
     })
 }
 
-buildPath = targetRoom =>{
+buildPath = (targetRoom, shop = true) =>{
     let queue = new Queue()
     let visited = [];
     let pathObject = {};
-    queue.enqueue(state.roomId);
-    pathObject[state.roomId] = []
+    queue.enqueue(state.room_id);
+    pathObject[state.room_id] = []
 
     while(queue.size() > 0){
         currentRoom = queue.dequeue()
@@ -353,103 +433,51 @@ buildPath = targetRoom =>{
                 if(room == targetRoom){
                     console.log(`Found path to ${target}`)
                     state.headingToShop = true
-                    state.pathToShop = pathObject[room]
+                    if(shop){
+                        state.pathToShop = pathObject[room]
+                    }
+                    else{
+                        //pirate
+                        state.pathToPirate = pathObject[room]
+                    }
+                    
+                    gameManager()
                     return
                 }
             }
         })
     }
 
+
+}
+
+changeName = () =>{
+    console.log("Going to attempt name change now")
+    const postObject = {
+        "name": "AWSafran"
+    }
+
+    axios({
+        method: 'post',
+        url: `${BASEURL}/api/adv/change_name/`,
+        headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Token ${AUTHTOKEN}`
+        },
+        data: postObject
+    })
+    .then(res =>{
+        console.log(res.data.messages)
+        state.needStatusUpdate = true
+        
+
+        setTimeout(gameManager, res.data.cooldown * 1000)
+    })
+    .catch(err =>{
+        console.log(err)
+    })
 }
 
 
 init()
 
-
-
-// const recursiveTraversal = (previousRoom, player, direction=null) =>{
-    
-//     const currentRoom = player.room_id
-
-//     const revDirs = {
-//         'n': 's',
-//         'e': 'w',
-//         's': 'n',
-//         'w': 'e'
-//     }
-
-//     //We need to fill out this part of the graph even when we hit our base case
-//     if(direction != null){
-//         player.roomGraph[previousRoom][direction] = currentRoom
-//         player.roomGraph[currentRoom][revDirs[direction]] = previousRoom
-//     }
-
-
-
-//     //Check if we have too much stuff:
-//     player.cooldownDelay()
-//     player.currentStatus()
-
-//     if(player.strength == player.encumbrance){
-//         player.returnToShop()
-//     }
-
-
-//     //Pick up anything in the room
-//     player.pickUpItems()
-
-
-//     if(player.gold >= 1000){
-//         if(player.room_id != "0"){
-//             player.returnHome()
-//         }
-//         return
-//     }
-
-//     if(player.roomGraph[currentRoom].values().indexOf("?") === -1){
-//         return
-//     }
-
-
-//     //Sort and reverse to prioritize going west, so we know we hit the shop
-//     player.roomGraph[previousRoom].keys().sort().reverse().map(direction =>{
-//         if(player.roomGraph[currentRoom][direction] === "?"){
-//             player.cooldownDelay()
-//             player.move(direction, "?")
-//             recursiveTraversal(currentRoom, player, direction)
-//             player.cooldownDelay()
-//             player.move(revDirs[direction], previousRoom)
-//         }
-//     })
-
-
-// }
-
-
-// const callInit = new Promise(function(resolve, reject){
-//     resolve(gamePlayer.init())
-// })
-
-
-// //Init
-// callInit.then(() => {
-//     setTimeout((() => console.log("This should print after axios return")), 1000)
-// })
-
-// gamePlayer.init()
-
-// console.log("This needs to wait for response before printing")
-
-// gamePlayer.cooldownDelay()
-
-// console.log("1")
-
-// setTimeout((() => console.log("2")), 2000)
-
-// console.log("3")
-
-
-
-//Go to the shop and store the id
-// console.log("Calling recursion")
-// recursiveTraversal(gamePlayer.room_id, gamePlayer)
