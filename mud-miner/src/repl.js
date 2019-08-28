@@ -1,9 +1,25 @@
 const Player = require('./player');
+const Queue = require('./queue');
 const axios = require('axios')
+
+const rev_dirs = {
+    'n': 's',
+    's': 'n',
+    'e': 'w',
+    'w': 'e'
+}
 let gamePlayer = new Player()
 let state = {}
 state.needStatusUpdate = true
 state.roomGraph = {}
+state.returnStack = []
+state.shop_id = -1
+state.pirate_room_id = -1
+state.headingToShop = false
+state.returningFromShop = false
+state.readyForNameChange = false
+state.pathToShop = []
+state.pathFromShop = []
 BASEURL = "https://lambda-treasure-hunt.herokuapp.com";
 AUTHTOKEN = "e837e4ce6747d03d96e727128d9cdc44a4c5cab7";
 
@@ -11,13 +27,112 @@ AUTHTOKEN = "e837e4ce6747d03d96e727128d9cdc44a4c5cab7";
 gameManager = () =>{
     console.log("Inside game manager function")
 
+
+    if(state.gold >= 1000){
+        //don't want to bother updating status, just need to find pirate
+        state.needStatusUpdate = false
+        state.readyForNameChange = true
+
+        if(state.pirate_room_id == -1){
+            //we havent' found the pirate yet, we need to keep traversing
+        }
+        else{
+            //build path to pirate, traverse it
+        }
+    }
+
     if(state.needStatusUpdate){
         statusUpdate()
         return
     }
 
-    if(state.encumbrance == state.strength){
 
+    //pick up items in the room if we want
+    // if we're not carrying too much
+    if(state.encumbrance < state.strength){
+
+        if(state.roomItems.length != 0){
+            //and there are items in the room
+
+            let item = state.roomItems.pop()
+
+            while(!item.includes("treasure")){
+                item = state.roomItems.pop()
+
+                if(state.roomItems.length == 0){
+                    break
+                }
+            }
+
+            //we've found the first item that contains the word treasure
+            //or we've iterated through and there are no treasures
+
+            if(item.includes("treasure")){
+                //pick it up
+
+                pickUp(item)
+            }
+        }
+    }
+
+
+
+    //Know when to go to the shop, and when to return
+
+    if(state.encumbrance >= state.strength){
+        if(!state.headingToShop){
+            //if we aren't heading to shop, we need to be
+            buildPath(state.shop_id)
+        }
+
+        //if we are heading to shop, don't need to do anything special
+    }
+
+    if(state.headingToShop && state.pathToShop.length > 0){
+        const next_move = state.pathToShop.shift()
+        state.pathFromShop.push(rev_dirs[next_move])
+
+        move(next_move)
+        return
+    }
+
+    if(state.headingToShop && state.pathToShop.length == 0){
+        if(state.inventory.length == 0){
+            //return from shop
+            state.returningFromShop = true
+            state.headingToShop = false
+        }
+        else{
+            const itemToSell = state.inventory.pop()
+            sell(itemToSell)
+            return
+            
+        }
+    }
+
+
+
+
+    if(state.returningFromShop){
+        if(state.pathFromShop.length == 0){
+            //we've finished returning from shop
+            state.returningFromShop = false
+        }
+        else{
+            const next_move = state.pathFromShop.pop()
+            move(next_move)
+            return
+        }
+    }
+
+
+    
+    
+
+    
+
+    if(state.roomId === state.pirate_room_id && state.gold >= 1000){
+        //change name
     }
 
     let graph = state.roomGraph;
@@ -92,13 +207,6 @@ move = (direction) =>{
     const requestObject = {
         "direction": direction
     }
-
-    const rev_dirs = {
-        'n': 's',
-        's': 'n',
-        'e': 'w',
-        'w': 'e'
-    }
     
     axios({
         method: 'post',
@@ -147,6 +255,110 @@ move = (direction) =>{
         .catch(err =>{
             console.log(err)
         })
+
+}
+
+sell = item =>{
+    const firstPostObject = {
+        "name": item
+    }
+
+    axios({
+        method: 'post',
+        url: `${BASEURL}/api/adv/sell/`,
+        headers: {
+            "Content-Type": "Application/json",
+            "Authorization": `Token ${AUTHTOKEN}`
+        },
+        data: firstPostObject
+    })
+        .then(res =>{
+
+            console.log(res.data.messages)
+
+            setTimeout(() => {confirmSale(item)}, res.data.cooldown * 1000)
+        })
+        .catch(err =>{
+            console.log(err)
+        })
+
+
+}
+
+confirmSale = item =>{
+    postObject = {
+        "name": item,
+        "confirm": "yes"
+    }
+
+    axios({
+        method: 'post',
+        url: `${BASEURL}/api/adv/sell/`,
+        headers: {
+            "Content-Type": "Application/json",
+            "Authorization": `Token ${AUTHTOKEN}`
+        },
+        data: postObject
+    }).then(res =>{
+        console.log(res.data.messages)
+        state.needStatusUpdate = true
+        setTimeout(gameManager, res.data.cooldown * 1000)
+    })
+
+}
+
+pickUp = item =>{
+    const postObject = {
+        "name": item
+    }
+
+    axios({
+        method: 'post',
+        url: `${BASEURL}/api/adv/sell/`,
+        headers: {
+            "Content-Type": "Application/json",
+            "Authorization": `Token ${AUTHTOKEN}`
+        },
+        data: postObject
+    })
+    .then(res =>{
+        console.log(res.data.messages)
+        state.needStatusUpdate = true
+
+        setTimeout(gameManager, res.data.cooldown * 1000)
+    })
+    .catch(err =>{
+        console.log(err)
+    })
+}
+
+buildPath = targetRoom =>{
+    let queue = new Queue()
+    let visited = [];
+    let pathObject = {};
+    queue.enqueue(state.roomId);
+    pathObject[state.roomId] = []
+
+    while(queue.size() > 0){
+        currentRoom = queue.dequeue()
+
+        exits = Object.keys(state.roomGraph[currentRoom])
+        exits.map(direction =>{
+            room = state.roomGraph[currentRoom][direction]
+
+            if(visited.indexOf(room) === -1 && room != "?"){
+                queue.enqueue(room)
+                pathObject[room] = [...pathObject[currentRoom]].push(direction)
+
+                if(room == targetRoom){
+                    console.log(`Found path to ${target}`)
+                    state.headingToShop = true
+                    state.pathToShop = pathObject[room]
+                    return
+                }
+            }
+        })
+    }
 
 }
 
