@@ -2,6 +2,7 @@ const Player = require('./player');
 const axios = require('axios')
 let gamePlayer = new Player()
 let state = {}
+state.needStatusUpdate = true
 state.roomGraph = {}
 BASEURL = "https://lambda-treasure-hunt.herokuapp.com";
 AUTHTOKEN = "e837e4ce6747d03d96e727128d9cdc44a4c5cab7";
@@ -10,7 +11,24 @@ AUTHTOKEN = "e837e4ce6747d03d96e727128d9cdc44a4c5cab7";
 gameManager = () =>{
     console.log("Inside game manager function")
 
-    init()
+    if(state.needStatusUpdate){
+        statusUpdate()
+        return
+    }
+
+    if(state.encumbrance == state.strength){
+
+    }
+
+    let graph = state.roomGraph;
+    let roomId = state.room_id;
+
+    let exits = Object.values(graph[roomId])
+    console.log(exits)
+    console.log("State:")
+    console.log(state)
+    
+
 }
 
 
@@ -46,6 +64,90 @@ init = () =>{
         setTimeout(gameManager, res.data.cooldown * 1000)
     })
         .catch(err => console.log(err))
+}
+
+statusUpdate = () =>{
+    axios({
+        method: 'post',
+        url: `${BASEURL}/api/adv/status/`,
+        headers: {
+            "Content-Type": "Application/json",
+            "Authorization": `Token ${AUTHTOKEN}`
+        }
+    })
+        .then(res =>{
+            state.encumbrance = res.data.encumbrance
+            state.strength = res.data.strength
+            state.inventory = res.data.inventory
+            state.gold = res.data.gold
+            console.log(`Messages: ${res.data.messages}`)
+            console.log(`Cooldown: ${res.data.cooldown}`)
+            state.needStatusUpdate = false
+            setTimeout(gameManager, res.data.cooldown * 1000)
+        })
+}
+
+move = (direction) =>{
+
+    const requestObject = {
+        "direction": direction
+    }
+
+    const rev_dirs = {
+        'n': 's',
+        's': 'n',
+        'e': 'w',
+        'w': 'e'
+    }
+    
+    axios({
+        method: 'post',
+        url: `${BASEURL}/api/adv/move/`,
+        data: requestObject,
+        headers: {
+            "Content-Type": "Application/json",
+            "Authorization": `Token ${AUTHTOKEN}`
+        }
+    })
+        .then(res =>{
+            console.log(`Moving from room ${state.room_id}: ${state.room_title} to room ${res.data.room_id}: ${res.data.room_title}`)
+
+            //Add room to graph if it isn't there
+            if(!(res.data.room_id in state.roomGraph)){
+                state.roomGraph[res.data.room_id] = {}
+                res.data.exits.map(exit =>{
+                    state.roomGraph[res.data.room_id][exit] = "?"
+                })
+            }
+
+            state.roomGraph[state.roomId][direction] = res.data.room_id
+            state.roomGraph[res.data.room_id][rev_dirs[direction]] = state.roomId
+
+
+
+            fs.appendFile('roomfile.txt', `${res.data.room_id} ${res.data.room_title}`, ()=> {})
+
+
+            state.roomId = res.data.room_id;
+            state.room_title = res.data.room_title;
+            state.room_description = res.data.description;
+            console.log(`Messages: ${res.data.messages}`)
+            console.log(`Cooldown: ${res.data.cooldown}`)
+
+            if(res.data.room_title.toLowerCase() === "shop"){
+                state.shop_id = res.data.room_id
+                console.log("Found the shop")
+            }
+
+            if(res.data.room_title.toLowerCase().includes("pirate")){
+                state.pirate_room_id = res.data.room_id
+                console.log(`Found the pirate in room ${res.data.room_id}`)
+            } 
+        })
+        .catch(err =>{
+            console.log(err)
+        })
+
 }
 
 

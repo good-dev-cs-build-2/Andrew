@@ -109,7 +109,7 @@ class Player{
     }
 
     async currentStatus(){
-        await axios({
+        axios({
             method: 'post',
             url: `${this.BASEURL}/api/adv/status/`,
             headers: {
