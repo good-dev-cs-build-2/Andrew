@@ -21,135 +21,127 @@ state.readyForNameChange = false
 state.pathToShop = []
 state.pathFromShop = []
 state.pathToPirate = []
+state.room_title = ""
+state.players = []
 state.roomItems = []
 BASEURL = "https://lambda-treasure-hunt.herokuapp.com";
 AUTHTOKEN = "e837e4ce6747d03d96e727128d9cdc44a4c5cab7";
+
+let miningRoom = 250
 
 
 gameManager = () =>{
     
     console.log("\n\n")
 
-    if(state.gold >= 1000){
-        console.log(`Have enough gold: ${state.gold}`)
-        //don't want to bother updating status, just need to find pirate
-        state.needStatusUpdate = false
-        state.readyForNameChange = true
-    }
-
-    if(state.needStatusUpdate){
-        statusUpdate()
-        return
-    }
-
 
     //pick up items in the room if we want
     // if we're not carrying too much
     // and we don't have enough gold yet
-    if(state.encumbrance < state.strength && state.gold < 1000){
+    // if(state.encumbrance < state.strength && state.gold < 1000){
 
-        if(state.roomItems.length != 0){
-            //and there are items in the room
+    //     if(state.roomItems.length != 0){
+    //         //and there are items in the room
 
-            let item = state.roomItems.pop()
+    //         let item = state.roomItems.pop()
 
-            while(!item.includes("treasure")){
-                item = state.roomItems.pop()
+    //         while(!item.includes("treasure")){
+    //             item = state.roomItems.pop()
 
-                if(state.roomItems.length == 0){
-                    break
-                }
-            }
+    //             if(state.roomItems.length == 0){
+    //                 break
+    //             }
+    //         }
 
-            //we've found the first item that contains the word treasure
-            //or we've iterated through and there are no treasures
+    //         //we've found the first item that contains the word treasure
+    //         //or we've iterated through and there are no treasures
 
-            if(item.includes("treasure")){
-                //pick it up
-                console.log(`Attempting to pick up ${item}`)
-                pickUp(item)
-                return
-            }
-        }
-    }
+    //         if(item.includes("treasure")){
+    //             //pick it up
+    //             console.log(`Attempting to pick up ${item}`)
+    //             pickUp(item)
+    //             return
+    //         }
+    //     }
+    // }
 
 
 
     //Know when to go to the shop, and when to return
 
-    if(state.encumbrance >= state.strength){
-        if(!state.headingToShop){
-            console.log("Creating path to shop")
-            //if we aren't heading to shop, we need to be
-            buildPath(state.shop_id)
-            return
-        }
+    // if(state.encumbrance >= state.strength){
+    //     if(!state.headingToShop){
+    //         console.log("Creating path to shop")
+    //         //if we aren't heading to shop, we need to be
+    //         buildPath(state.shop_id)
+    //         return
+    //     }
 
-        //if we are heading to shop, don't need to do anything special
-    }
+    //     //if we are heading to shop, don't need to do anything special
+    // }
 
-    if(state.headingToShop && state.pathToShop.length > 0){
-        const next_move = state.pathToShop.shift()
-        state.pathFromShop.push(rev_dirs[next_move])
-        console.log(`Moving ${next_move} from heading to shop traversal`)
-        move(next_move)
-        return
-    }
+    // if(state.headingToShop && state.pathToShop.length > 0){
+    //     const next_move = state.pathToShop.shift()
+    //     state.pathFromShop.push(rev_dirs[next_move])
+    //     console.log(`Moving ${next_move} from heading to shop traversal`)
+    //     move(next_move)
+    //     return
+    // }
 
-    if(state.headingToShop && state.pathToShop.length == 0){
-        //we're in the shop
-        if(state.inventory.length == 0){
-            //return from shop
-            state.returningFromShop = true
-            state.headingToShop = false
-        }
-        else{
-            const itemToSell = state.inventory.pop()
-            sell(itemToSell)
-            return
+    // if(state.headingToShop && state.pathToShop.length == 0){
+    //     //we're in the shop
+    //     if(state.inventory.length == 0){
+    //         //return from shop
+    //         state.returningFromShop = true
+    //         state.headingToShop = false
+    //     }
+    //     else{
+    //         const itemToSell = state.inventory.pop()
+    //         sell(itemToSell)
+    //         return
             
-        }
-    }
+    //     }
+    // }
 
 
-    if(state.returningFromShop){
-        if(state.pathFromShop.length == 0){
-            //we've finished returning from shop
-            state.returningFromShop = false
-        }
-        else{
-            const next_move = state.pathFromShop.pop()
-            console.log(`Moving ${next_move} from return from shop traversal`)
-            move(next_move)
-            return
-        }
-    }
+    // if(state.returningFromShop){
+    //     if(state.pathFromShop.length == 0){
+    //         //we've finished returning from shop
+    //         state.returningFromShop = false
+    //     }
+    //     else{
+    //         const next_move = state.pathFromShop.pop()
+    //         console.log(`Moving ${next_move} from return from shop traversal`)
+    //         move(next_move)
+    //         return
+    //     }
+    // }
 
 
-    if(state.readyForNameChange && state.pirate_room_id != -1){
-        //We're ready to change name and we know where to go
+    // if(state.readyForNameChange && state.pirate_room_id != -1){
+    //     //We're ready to change name and we know where to go
 
-        if(state.room_id == state.pirate_room_id){
-            //We're here!
+    //     if(state.room_id == state.pirate_room_id){
+    //         //We're here!
 
-            changeName()
-            return
-        }
-        else{
-            if(state.pathToPirate.length == 0){
-                //we haven't built a path yet
-                buildPath(state.pirate_room_id, false)
-                return
-            }
-            else{
-                //We have a path, just need to follow it
-                const moveToPirate = state.pathToPirate.shift()
-                console.log(`Moving ${moveToPirate} from pirate path traversal`)
-                move(moveToPirate)
-                return
-            }
-        }
-    }
+    //         changeName()
+    //         return
+    //     }
+    //     else{
+    //         if(state.pathToPirate.length == 0){
+    //             //we haven't built a path yet
+    //             buildPath(state.pirate_room_id, false)
+    //             return
+    //         }
+    //         else{
+    //             //We have a path, just need to follow it
+    //             const moveToPirate = state.pathToPirate.shift()
+    //             console.log(`Moving ${moveToPirate} from pirate path traversal`)
+    //             move(moveToPirate)
+    //             return
+    //         }
+    //     }
+    // }
 
 
     //We get here if: Not overencumbered, 
@@ -159,15 +151,28 @@ gameManager = () =>{
     let graph = state.roomGraph;
     let roomId = state.room_id;
 
+    if(roomId == 250 || roomId == "250"){
+        console.log('FOUND THE MINING ROOM BAYBAY')
+        console.log(`People in mining room: `)
+        return
+    }
 
-    
+    //prioritize south and east, since that's where the pirate is
     let exits = Object.keys(graph[roomId])
-    console.log(`Checking exits: ${exits}`)
-    if(exits.includes("w")){
+    if(exits.includes("s")){
         //West is an exit
-        if(graph[roomId]["w"] == "?"){
+        if(graph[roomId]["s"] == "?"){
             //West is unexplored
-            console.log("Moving west from normal traversal")
+            move("s")
+            state.returnStack.push("n")
+            return
+        }
+    }
+
+    if(exits.includes("w")){
+        //east is an exit
+        if(graph[roomId]["w"] == "?"){
+            //east is unexplored
             move("w")
             state.returnStack.push("e")
             return
@@ -175,23 +180,11 @@ gameManager = () =>{
     }
 
     if(exits.includes("e")){
-        //east is an exit
+        //south is an exit
         if(graph[roomId]["e"] == "?"){
-            //east is unexplored
-            console.log("Moving east from normal traversal")
+            //south is unexplored
             move("e")
             state.returnStack.push("w")
-            return
-        }
-    }
-
-    if(exits.includes("s")){
-        //south is an exit
-        if(graph[roomId]["s"] == "?"){
-            //south is unexplored
-            console.log("Moving south from normal traversal")
-            move("s")
-            state.returnStack.push("n")
             return
         }
     }
@@ -200,7 +193,6 @@ gameManager = () =>{
         //north is an exit
         if(graph[roomId]["n"] == "?"){
             //north is unexplored
-            console.log("Moving north from normal traversal")
             move("n")
             state.returnStack.push("s")
             return
@@ -211,7 +203,6 @@ gameManager = () =>{
 
     if(state.returnStack.length > 0){
         const retrace_move = state.returnStack.pop()
-        console.log(`Moving ${retrace_move} from retrace algo`)
         move(retrace_move)
         return
     }
@@ -279,8 +270,6 @@ statusUpdate = () =>{
 
 move = (direction) =>{
 
-    console.log(`Going to move: ${direction}`)
-
     const requestObject = {
         "direction": direction
     }
@@ -296,7 +285,7 @@ move = (direction) =>{
         
     })
         .then(res =>{
-            console.log(`Moving from room ${state.room_id}: ${state.room_title} to room ${res.data.room_id}: ${res.data.title}`)
+            console.log(`Moving from room ${state.room_id} to room ${res.data.room_id}\n`)
 
             //Add room to graph if it isn't there
             if(!(res.data.room_id in state.roomGraph)){
@@ -305,6 +294,8 @@ move = (direction) =>{
                     state.roomGraph[res.data.room_id][exit] = "?"
                 })
             }
+
+            console.log(`Exits: ${res.data.exits}`)
 
             state.roomGraph[state.room_id][direction] = res.data.room_id
             state.roomGraph[res.data.room_id][rev_dirs[direction]] = state.room_id
@@ -316,9 +307,8 @@ move = (direction) =>{
             state.room_title = res.data.title;
             state.room_description = res.data.description;
             state.roomItems = res.data.items
-            console.log(`Messages: ${res.data.messages}`)
-            console.log(`Items: ${res.data.items}`)
-            console.log(`Cooldown: ${res.data.cooldown}`)
+            console.log(`Coordinates: ${res.data.coordinates}`)
+            state.players = res.data.players
 
             if(res.data.title.toLowerCase() === "shop"){
                 state.shop_id = res.data.room_id
