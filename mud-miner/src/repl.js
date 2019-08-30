@@ -40,29 +40,29 @@ gameManager = () =>{
     // and we don't have enough gold yet
     // if(state.encumbrance < state.strength && state.gold < 1000){
 
-    //     if(state.roomItems.length != 0){
-    //         //and there are items in the room
+    if(state.roomItems.length != 0){
+        //and there are items in the room
 
-    //         let item = state.roomItems.pop()
+        let item = state.roomItems.pop()
 
-    //         while(!item.includes("treasure")){
-    //             item = state.roomItems.pop()
+        while(!item.includes("egg")){
+            item = state.roomItems.pop()
 
-    //             if(state.roomItems.length == 0){
-    //                 break
-    //             }
-    //         }
+            if(state.roomItems.length == 0){
+                break
+            }
+        }
 
-    //         //we've found the first item that contains the word treasure
-    //         //or we've iterated through and there are no treasures
+        //we've found the first item that contains the word treasure
+        //or we've iterated through and there are no treasures
 
-    //         if(item.includes("treasure")){
-    //             //pick it up
-    //             console.log(`Attempting to pick up ${item}`)
-    //             pickUp(item)
-    //             return
-    //         }
-    //     }
+        if(item.includes("egg")){
+            //pick it up
+            console.log(`Attempting to pick up ${item}`)
+            pickUp(item)
+            return
+        }
+    }
     // }
 
 
