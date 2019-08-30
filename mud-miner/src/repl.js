@@ -43,6 +43,8 @@ gameManager = () =>{
     if(state.roomItems.length != 0){
         //and there are items in the room
 
+        console.log(`Room Items: ${state.roomItems}`)
+
         let item = state.roomItems.pop()
 
         while(!item.includes("egg")){
@@ -55,12 +57,13 @@ gameManager = () =>{
 
         //we've found the first item that contains the word treasure
         //or we've iterated through and there are no treasures
-
-        if(item.includes("egg")){
-            //pick it up
-            console.log(`Attempting to pick up ${item}`)
-            pickUp(item)
-            return
+        if(item !== undefined){
+            if(item.includes("egg")){
+                //pick it up
+                console.log(`Attempting to pick up ${item}`)
+                pickUp(item)
+                return
+            }
         }
     }
     // }
@@ -151,20 +154,20 @@ gameManager = () =>{
     let graph = state.roomGraph;
     let roomId = state.room_id;
 
-    if(roomId == 250 || roomId == "250"){
-        console.log('FOUND THE MINING ROOM BAYBAY')
-        console.log(`People in mining room: `)
-        return
-    }
+    // if(roomId == 250 || roomId == "250"){
+    //     console.log('FOUND THE MINING ROOM BAYBAY')
+    //     console.log(`People in mining room: `)
+    //     return
+    // }
 
     //prioritize south and east, since that's where the pirate is
     let exits = Object.keys(graph[roomId])
-    if(exits.includes("s")){
+    if(exits.includes("n")){
         //West is an exit
-        if(graph[roomId]["s"] == "?"){
+        if(graph[roomId]["n"] == "?"){
             //West is unexplored
-            move("s")
-            state.returnStack.push("n")
+            move("n")
+            state.returnStack.push("s")
             return
         }
     }
@@ -189,12 +192,12 @@ gameManager = () =>{
         }
     }
 
-    if(exits.includes("n")){
+    if(exits.includes("s")){
         //north is an exit
-        if(graph[roomId]["n"] == "?"){
+        if(graph[roomId]["s"] == "?"){
             //north is unexplored
-            move("n")
-            state.returnStack.push("s")
+            move("s")
+            state.returnStack.push("n")
             return
         }
     }
@@ -301,7 +304,7 @@ move = (direction) =>{
             state.roomGraph[res.data.room_id][rev_dirs[direction]] = state.room_id
 
 
-
+            console.log(`Items: ${res.data.items}`)
 
             state.room_id = res.data.room_id;
             state.room_title = res.data.title;
